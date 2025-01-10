@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QFileDialog,
     QMessageBox,
+    QTextEdit,
 )
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
@@ -36,6 +37,9 @@ class ImageComparer(QWidget):
         # Path to the annotations JSON file
         self.annotations_file = ""
 
+        # Prompts: { "image1.jpg": "Prompt text...", ... }
+        self.prompts = {}
+
         # Initialize UI components
         self.init_ui()
 
@@ -60,6 +64,14 @@ class ImageComparer(QWidget):
         images_layout.addWidget(self.label_a)
         images_layout.addWidget(self.label_b)
         main_layout.addLayout(images_layout)
+
+        # Prompt display
+        self.label_prompt = QLabel("Prompt:")
+        self.text_prompt = QTextEdit()
+        self.text_prompt.setReadOnly(True)
+        self.text_prompt.setFixedHeight(100)
+        main_layout.addWidget(self.label_prompt)
+        main_layout.addWidget(self.text_prompt)
 
         # Choice buttons layout
         choices_layout = QHBoxLayout()
@@ -91,9 +103,13 @@ class ImageComparer(QWidget):
         navigation_layout.addWidget(self.btn_next)
         main_layout.addLayout(navigation_layout)
 
-        # Button to load existing annotations
+        # Buttons to load existing annotations and prompts
+        load_buttons_layout = QHBoxLayout()
         self.btn_load_annotations = QPushButton("Load Annotations")
-        main_layout.addWidget(self.btn_load_annotations)
+        self.btn_load_prompts = QPushButton("Load Prompt File")
+        load_buttons_layout.addWidget(self.btn_load_annotations)
+        load_buttons_layout.addWidget(self.btn_load_prompts)
+        main_layout.addLayout(load_buttons_layout)
 
         self.setLayout(main_layout)
 
@@ -104,6 +120,7 @@ class ImageComparer(QWidget):
         self.btn_choose_b.clicked.connect(lambda: self.record_preference("B"))
         self.btn_no_preference.clicked.connect(lambda: self.record_preference("T"))
         self.btn_load_annotations.clicked.connect(self.load_annotations)
+        self.btn_load_prompts.clicked.connect(self.load_prompts)
         self.btn_previous.clicked.connect(self.go_previous)
         self.btn_next.clicked.connect(self.go_next)
 
@@ -124,19 +141,19 @@ class ImageComparer(QWidget):
     def check_folders_selected(self):
         if self.folder_a and self.folder_b:
             # Get image files from both folders (case-insensitive)
-            left_images = set(
+            a_images = set(
                 f.lower()
                 for f in os.listdir(self.folder_a)
                 if f.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tiff", ".webp"))
             )
-            right_images = set(
+            b_images = set(
                 f.lower()
                 for f in os.listdir(self.folder_b)
                 if f.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tiff", ".webp"))
             )
 
             # Find common images (case-insensitive)
-            common_images_lower = left_images.intersection(right_images)
+            common_images_lower = a_images.intersection(b_images)
 
             if not common_images_lower:
                 QMessageBox.warning(
@@ -231,6 +248,50 @@ class ImageComparer(QWidget):
                 self.annotations_file = ""
                 self.show_image_pair()
 
+    def load_prompts(self):
+        options = QFileDialog.Options()
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Load Prompt File",
+            "",
+            "JSON Files (*.json);;All Files (*)",
+            options=options,
+        )
+        if file_path:
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    loaded_prompts = json.load(f)
+                if not isinstance(loaded_prompts, dict):
+                    raise ValueError("Prompt file must contain a dictionary.")
+
+                # Ensure all keys and values are strings
+                for key, value in loaded_prompts.items():
+                    if not isinstance(key, str) or not isinstance(value, str):
+                        raise ValueError("All keys and values in prompts must be strings.")
+
+                # Normalize prompts to lowercase keys for matching
+                normalized_prompts = {k.lower(): v for k, v in loaded_prompts.items()}
+
+                # Update prompts by preserving original casing
+                for img_lower, prompt in normalized_prompts.items():
+                    a_actual = self.get_actual_filename(self.folder_a, img_lower)
+                    b_actual = self.get_actual_filename(self.folder_b, img_lower)
+                    if a_actual and b_actual:
+                        self.prompts[a_actual] = prompt
+
+                QMessageBox.information(
+                    self,
+                    "Success",
+                    f"Loaded prompts for {len(self.prompts)} images from {file_path}",
+                )
+                self.show_image_pair()  # Refresh to show prompt if available
+            except Exception as e:
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    f"Failed to load prompts: {e}",
+                )
+
     def update_image_display(self):
         # Filter image_names to exclude already annotated images
         annotated = set(self.annotations.keys())
@@ -295,6 +356,10 @@ class ImageComparer(QWidget):
             self.label_b.setPixmap(pixmap_b.scaled(400, 400, Qt.KeepAspectRatio))
         else:
             self.label_b.setText("Failed to load image")
+
+        # Display prompt if available
+        prompt = self.prompts.get(a_actual, "No prompt available.")
+        self.text_prompt.setText(prompt)
 
         # Update navigation buttons
         self.btn_previous.setEnabled(self.current_index > 0)
@@ -423,3 +488,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
