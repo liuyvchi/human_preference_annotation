@@ -15,5 +15,7 @@ then run
 
 - load image folder A
 - load image folder B
-- load the prompt json fole
-- (optional) load the saved annotation json files 
+- load the prompt json file
+- (optional) load the previsouly saved annotation json file
+- begin to anotate
+- exit and save your annotations
