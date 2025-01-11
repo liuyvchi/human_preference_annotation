@@ -15,7 +15,7 @@ then run
 
 - load image folder A
 - load image folder B
-  ![load two folders](step_1_2.jpg)
+  <img src="step_1_2.jpg" alt="load two folders" width="300">
 - load the prompt json file
 - (optional) load the previsouly saved annotation json file
 - begin to anotate
