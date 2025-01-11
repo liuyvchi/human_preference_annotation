@@ -18,7 +18,7 @@ then run
   #### Please only keep the images you need to annotate in the two folders.
 - load the prompt json file (imgName2prompt.json)
 - (optional) load the previsouly saved annotation json file 
-- begin to anotate. Select the image you prefered. (click the buttom ```left```, ```right```, or ```no preference```)
+- begin to anotate. Select the image you prefere. (click the buttom ```left```, ```right```, or ```no preference```)
 - exit and save your annotations
   #### The system will automatically save your annotations as annotations.json. 
 
