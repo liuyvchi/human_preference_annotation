@@ -17,7 +17,7 @@ then run
 - load image folder B
 - load the prompt json file (imgName2prompt.json)
 - (optional) load the previsouly saved annotation json file 
-- begin to anotate
+- begin to anotate (click the buttom ```left```, ```right```, or ```no preference```)
 - exit and save your annotations
 
  <img src="step_1_2.jpg" alt="load two folders" width="300">
