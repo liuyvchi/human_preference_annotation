@@ -13,9 +13,9 @@ then run
 
 ## Steps
 
-- load image folder A
+- load image folder A ([Google drive](https://drive.google.com/drive/folders/10PwFh1z7TYansiyvGyP2ls73vkl1V1Z_?usp=drive_link))
 - load image folder B
-- load the prompt json file
+- load the prompt json file (imgName2prompt.json)
 - (optional) load the previsouly saved annotation json file 
 - begin to anotate
 - exit and save your annotations
