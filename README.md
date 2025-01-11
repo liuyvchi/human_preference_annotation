@@ -15,6 +15,7 @@ then run
 
 - load image folder A ([Google drive](https://drive.google.com/drive/folders/10PwFh1z7TYansiyvGyP2ls73vkl1V1Z_?usp=drive_link))
 - load image folder B
+  #### Tips: Please only keep the images you need to annotate in the two folders.
 - load the prompt json file (imgName2prompt.json)
 - (optional) load the previsouly saved annotation json file 
 - begin to anotate (click the buttom ```left```, ```right```, or ```no preference```)
