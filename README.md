@@ -20,7 +20,7 @@ then run
 - (optional) load the previsouly saved annotation json file 
 - begin to anotate. Select the image you prefered. (click the buttom ```left```, ```right```, or ```no preference```)
 - exit and save your annotations
-  #### The system will automatically save your notatioins as annotations.json. 
+  #### The system will automatically save your annotations as annotations.json. 
 
  <img src="step_1_2.jpg" alt="load two folders" width="300">
  <img src="step_3_4.jpg" alt="load two folders" width="400">
