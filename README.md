@@ -15,7 +15,7 @@ then run
 
 - load image folder A
 - load image folder B
-  ![load two folders](steps_1_2.png)
+  ![load two folders](step_1_2.jpg)
 - load the prompt json file
 - (optional) load the previsouly saved annotation json file
 - begin to anotate
