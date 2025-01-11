@@ -11,9 +11,40 @@ from PyQt5.QtWidgets import (
     QFileDialog,
     QMessageBox,
     QTextEdit,
+    QLineEdit,
+    QFormLayout,
+    QDialog,
+    QDialogButtonBox,
 )
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
+
+
+class RangeDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Set Annotation Range")
+
+        self.start_input = QLineEdit()
+        self.end_input = QLineEdit()
+
+        form_layout = QFormLayout()
+        form_layout.addRow("Start Index:", self.start_input)
+        form_layout.addRow("End Index:", self.end_input)
+
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel, parent=self
+        )
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+
+        layout = QVBoxLayout()
+        layout.addLayout(form_layout)
+        layout.addWidget(self.buttons)
+        self.setLayout(layout)
+
+    def get_values(self):
+        return self.start_input.text(), self.end_input.text()
 
 
 class ImageComparer(QWidget):
@@ -31,14 +62,19 @@ class ImageComparer(QWidget):
         # Current index in the image list
         self.current_index = 0
 
-        # Annotations: { "image1.jpg": "A", "image2.png": "T", ... }
+        # Annotations: { "image1.png": "A", "image2.png": "T", ... }
         self.annotations = {}
 
         # Path to the annotations JSON file
         self.annotations_file = ""
 
-        # Prompts: { "image1.jpg": "Prompt text...", ... }
+        # Prompts: { "image1.png": "Prompt text...", ... }
         self.prompts = {}
+
+        # Selected range
+        self.range_set = False
+        self.start_index = None
+        self.end_index = None
 
         # Initialize UI components
         self.init_ui()
@@ -54,6 +90,13 @@ class ImageComparer(QWidget):
         folder_layout.addWidget(self.btn_select_a)
         folder_layout.addWidget(self.btn_select_b)
         main_layout.addLayout(folder_layout)
+
+        # Range selection buttons
+        range_layout = QHBoxLayout()
+        self.btn_set_range = QPushButton("Set Annotation Range")
+        self.btn_set_range.setEnabled(False)  # Enabled after folders are selected
+        range_layout.addWidget(self.btn_set_range)
+        main_layout.addLayout(range_layout)
 
         # Image display labels
         images_layout = QHBoxLayout()
@@ -79,7 +122,7 @@ class ImageComparer(QWidget):
         self.btn_no_preference = QPushButton("No Preference")
         self.btn_choose_b = QPushButton("Right")
 
-        # Initially disable choice buttons until folders are selected
+        # Initially disable choice buttons until folders and range are set
         self.btn_choose_a.setEnabled(False)
         self.btn_no_preference.setEnabled(False)
         self.btn_choose_b.setEnabled(False)
@@ -116,6 +159,7 @@ class ImageComparer(QWidget):
         # Connect signals to slots
         self.btn_select_a.clicked.connect(self.select_folder_a)
         self.btn_select_b.clicked.connect(self.select_folder_b)
+        self.btn_set_range.clicked.connect(self.set_range)
         self.btn_choose_a.clicked.connect(lambda: self.record_preference("A"))
         self.btn_choose_b.clicked.connect(lambda: self.record_preference("B"))
         self.btn_no_preference.clicked.connect(lambda: self.record_preference("T"))
@@ -168,30 +212,80 @@ class ImageComparer(QWidget):
             b_mapping = {f.lower(): f for f in os.listdir(self.folder_b) if f.lower() in common_images_lower}
 
             # Assuming filenames are identical in both folders except for case
-            self.image_names = sorted(a_mapping.keys())
+            self.image_names = sorted(a_mapping.keys(), key=lambda x: int(os.path.splitext(a_mapping[x])[0]))
 
-            # After selecting folders, ask the user if they want to load existing annotations
-            reply = QMessageBox.question(
+            # Enable range selection
+            self.btn_set_range.setEnabled(True)
+
+    def set_range(self):
+        dialog = RangeDialog(self)
+        if dialog.exec_() == QDialog.Accepted:
+            start_text, end_text = dialog.get_values()
+            try:
+                start = int(start_text)
+                end = int(end_text)
+                if start > end:
+                    raise ValueError("Start index cannot be greater than end index.")
+                self.start_index = start
+                self.end_index = end
+                self.range_set = True
+                self.filter_images_by_range()
+            except ValueError as ve:
+                QMessageBox.critical(
+                    self,
+                    "Invalid Input",
+                    f"Please enter valid integer indices.\n{ve}",
+                )
+
+    def filter_images_by_range(self):
+        # Filter image_names based on the selected range
+        filtered_image_names = []
+        for img_lower in self.image_names:
+            img_num_str = os.path.splitext(os.path.basename(self.get_actual_filename(self.folder_a, img_lower)))[0]
+            try:
+                img_num = int(img_num_str)
+                if self.start_index <= img_num <= self.end_index:
+                    filtered_image_names.append(img_lower)
+            except ValueError:
+                # Skip files that do not start with a number
+                continue
+
+        self.image_names = sorted(filtered_image_names, key=lambda x: int(os.path.splitext(self.get_actual_filename(self.folder_a, x))[0]))
+
+        if not self.image_names:
+            QMessageBox.warning(
                 self,
-                "Load Annotations",
-                "Do you want to load an existing annotations JSON file?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No,
+                "No Images in Range",
+                f"No images found in the range {self.start_index}-{self.end_index}.",
             )
-            if reply == QMessageBox.Yes:
-                self.load_annotations()
-            else:
-                # Initialize annotations as empty
-                self.annotations = {}
-                self.annotations_file = ""
-                # Enable choice and navigation buttons
-                self.btn_choose_a.setEnabled(True)
-                self.btn_no_preference.setEnabled(True)
-                self.btn_choose_b.setEnabled(True)
-                self.btn_next.setEnabled(True)
-                self.btn_previous.setEnabled(False)
-                # Show the first image pair
-                self.show_image_pair()
+            return
+
+        # Disable range setting after it's set
+        self.btn_set_range.setEnabled(False)
+
+        # After setting range, ask the user if they want to load existing annotations
+        reply = QMessageBox.question(
+            self,
+            "Load Annotations",
+            "Do you want to load an existing annotations JSON file?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if reply == QMessageBox.Yes:
+            self.load_annotations()
+        else:
+            # Initialize annotations as empty
+            self.annotations = {}
+            self.annotations_file = ""
+            # Enable choice and navigation buttons
+            self.btn_choose_a.setEnabled(True)
+            self.btn_no_preference.setEnabled(True)
+            self.btn_choose_b.setEnabled(True)
+            self.btn_next.setEnabled(True)
+            self.btn_previous.setEnabled(False)
+            # Show the first image pair
+            self.current_index = 0
+            self.show_image_pair()
 
     def load_annotations(self):
         options = QFileDialog.Options()
@@ -385,6 +479,9 @@ class ImageComparer(QWidget):
             return None
 
     def record_preference(self, choice):
+        if not self.image_names:
+            return
+
         image_key = self.image_names[self.current_index]  # Lowercase filename
         # Retrieve actual filename with original casing
         a_actual = self.get_actual_filename(self.folder_a, image_key)
@@ -488,4 +585,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
